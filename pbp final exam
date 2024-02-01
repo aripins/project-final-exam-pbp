@@ -1,0 +1,111 @@
+const express = require('express');
+const jwt = require('jsonwebtoken');
+
+const app = express();
+
+// Middleware untuk menyimpan data calon legislatif
+class Caleg {
+    constructor(nama, nomorUrut, gender, partai, visiMisi) {
+        this.nama = nama;
+        this.nomorUrut = nomorUrut;
+        this.gender = gender;
+        this.partai = partai;
+        this.visiMisi = visiMisi;
+    }
+}
+
+// Middleware untuk menangani data calon legislatif
+class Middleware {
+    constructor() {
+        this.calonLegislatifList = [];
+    }
+
+    // Method untuk menambahkan calon legislatif ke dalam list
+    tambahCalonLegislatif(caleg) {
+        this.calonLegislatifList.push(caleg);
+    }
+
+    // Method untuk mendapatkan semua calon legislatif
+    getCalonLegislatifList() {
+        return this.calonLegislatifList;
+    }
+
+    // Method untuk mencari calon legislatif berdasarkan nomor urut
+    cariCalonLegislatif(nomorUrut) {
+        return this.calonLegislatifList.find(caleg => caleg.nomorUrut === nomorUrut);
+    }
+}
+
+// Membuat instance dari middleware
+const middleware = new Middleware();
+
+// Menambahkan data calon legislatif
+middleware.tambahCalonLegislatif(new Caleg("Aripin Sihabudin", 1, 'L', "PDI", "Menyejahterakan seluruh rakyat Indonesia"));
+middleware.tambahCalonLegislatif(new Caleg("Talitha Nirmala", 2, 'P', "GOLKAR", "Menuntaskan permasalahan ekonomi daerah"));
+middleware.tambahCalonLegislatif(new Caleg("Dzikri Hibatullah", 3, 'L', "PKB", "Membangun jalan yang layak tiap desa"));
+middleware.tambahCalonLegislatif(new Caleg("Asep Hidayat", 4, 'L', "NASDEM", "Menuntaskan Korupsi"));
+middleware.tambahCalonLegislatif(new Caleg("Zubaedah", 5, 'P', "GOLKAR", "Membangun sekolah tiap desa"));
+middleware.tambahCalonLegislatif(new Caleg("Siti Maria", 6, 'P', "PDI", "Menciptakan lingkungan kondusif bagi usaha menengah"));
+middleware.tambahCalonLegislatif(new Caleg("Jajang", 7, 'L', "PKB", "Menyediakan pendidikan dan pelatihan ekonomi kreatif"));
+
+// Middleware untuk generate token JWT
+function generateToken(user) {
+    return jwt.sign(user, 'secretKey', { expiresIn: '1h' });
+}
+
+// Route untuk login dan mendapatkan token JWT
+app.post('/login', (req, res) => {
+    // Lakukan proses autentikasi pengguna
+    // Contoh sederhana, pengguna berhasil login jika username dan password sesuai
+    const username = req.body.username;
+    const password = req.body.password;
+
+    // Contoh validasi sederhana
+    if (username === 'user' && password === 'password') {
+        // Jika autentikasi berhasil, buat dan kirimkan token JWT
+        const token = generateToken({ username });
+        res.json({ token });
+    } else {
+        res.status(401).json({ error: 'Autentikasi gagal' });
+    }
+});
+
+// Route yang dilindungi dengan JWT
+app.get('/protected', (req, res, next) => {
+    const token = req.headers.authorization;
+    jwt.verify(token, 'secretKey', (err, decoded) => {
+        if (err) {
+            return res.status(401).json({ error: 'Token tidak valid' });
+        }
+        req.user = decoded;
+        next();
+    });
+}, (req, res) => {
+    // Handler untuk endpoint protected
+    res.send('Ini adalah halaman yang dilindungi');
+});
+
+// Route untuk menampilkan data calon legislatif
+app.get('/calon-legislatif', (req, res) => {
+    res.json(middleware.getCalonLegislatifList());
+});
+
+// Menjalankan server pada port tertentu
+const PORT = process.env.PORT || 8080;
+const server = app.listen(PORT, () => {
+    console.log(`Server berjalan pada port ${PORT}`);
+});
+
+// Handle error jika port sudah digunakan
+server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+        console.error(`Port ${PORT} sudah digunakan, mencoba port lain.`);
+        // Coba port lain
+        setTimeout(() => {
+            server.close();
+            server.listen(PORT + 1);
+        }, 1000);
+    } else {
+        console.error(err);
+    }
+});
